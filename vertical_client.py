@@ -45,24 +45,37 @@ class VerticalApiClient:
                 'Accept': 'text/event-stream'
             }
 
-            # 构建请求payload - 根据Vertical Studio API实际格式调整
-            payload = {
-                'message': message,
-                'stream': True,
-                'model': model_id
+            # 根据抓取的实际API格式构建请求payload
+            import uuid
+            import datetime
+
+            message_obj = {
+                "id": str(uuid.uuid4()).replace('-', ''),
+                "createdAt": datetime.datetime.utcnow().isoformat() + 'Z',
+                "role": "user",
+                "content": message,
+                "parts": [{"type": "text", "text": message}]
             }
 
-            if system_prompt:
-                payload['system'] = system_prompt
+            settings = {
+                "modelId": model_id,
+                "reasoning": output_reasoning,
+                "toneOfVoice": None,
+                "webSearch": False,
+                "systemPromptPreset": None,
+                "customSystemPrompt": system_prompt if system_prompt else None
+            }
 
-            if output_reasoning:
-                payload['include_reasoning'] = True
+            payload = {
+                "message": message_obj,
+                "chat": chat_id,
+                "settings": settings
+            }
 
             print(f"发送消息到 Vertical Studio API: {message[:50]}...")
 
-            # 构建实际的API端点URL - 基于models.json中的URL模式
-            # 将 .data 替换为实际的聊天端点
-            api_endpoint = f"https://app.verticalstudio.ai/api/chat/stream"
+            # 使用抓取到的实际API端点
+            api_endpoint = "https://app.verticalstudio.ai/api/chat/prompt/text"
 
             async with self.http_client.stream(
                 'POST',
@@ -84,7 +97,7 @@ class VerticalApiClient:
                     yield f'error: {{"message": "API请求失败: {response.status_code} - {error_content[:200]}"}}'
                     return
 
-                # 处理流式响应
+                # 处理流式响应 - 根据抓取的实际格式
                 buffer = ""
                 async for chunk in response.aiter_bytes():
                     buffer += chunk.decode('utf-8', errors='ignore')
@@ -95,35 +108,28 @@ class VerticalApiClient:
                         line = line.strip()
 
                         if line:
-                            # 处理不同的响应格式
-                            if line.startswith('data: '):
-                                data_part = line[6:]
-                                try:
-                                    parsed = json.loads(data_part)
+                            # 处理Vertical Studio的特殊响应格式
+                            if line.startswith('f:'):
+                                # 消息开始标识，包含messageId
+                                continue
+                            elif line.startswith('0:'):
+                                # 内容块 - 直接转发
+                                yield line
+                            elif line.startswith('g:') and output_reasoning:
+                                # 推理内容 - 直接转发
+                                yield line
+                            elif line.startswith('e:'):
+                                # 结束信息，包含usage等
+                                continue
+                            elif line.startswith('d:'):
+                                # 最终完成信号
+                                yield 'd:{"type": "done"}'
+                                return
+                            elif line.startswith('8:'):
+                                # 元数据信息
+                                continue
 
-                                    # 根据Vertical Studio的实际响应格式转换
-                                    if parsed.get('type') == 'content':
-                                        content = parsed.get('content', '')
-                                        yield f'0:"{content}"'
-                                    elif parsed.get('type') == 'reasoning' and output_reasoning:
-                                        reasoning = parsed.get('content', '')
-                                        yield f'g:"{reasoning}"'
-                                    elif parsed.get('type') == 'done':
-                                        yield 'd:{"type": "done"}'
-                                        return
-                                except json.JSONDecodeError:
-                                    # 如果不是JSON，可能是纯文本流
-                                    if data_part and data_part != '[DONE]':
-                                        yield f'0:"{data_part}"'
-                                    elif data_part == '[DONE]':
-                                        yield 'd:{"type": "done"}'
-                                        return
-                            else:
-                                # 直接转发其他格式的行
-                                if line.startswith('0:"') or line.startswith('g:"') or line.startswith('d:'):
-                                    yield line
-
-                # 如果没有收到done信号，主动发送
+                # 如果没有收到d:信号，主动发送完成
                 yield 'd:{"type": "done"}'
 
         except Exception as e:

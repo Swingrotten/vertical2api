@@ -231,7 +231,7 @@ async def startup():
     models_data = load_models()
     load_client_api_keys()
     load_vertical_auth_tokens()
-    http_client = httpx.AsyncClient(timeout=None, verify=False)
+    http_client = httpx.AsyncClient(timeout=None, verify=False, follow_redirects=True)
     vertical_api_client = VerticalApiClient(http_client)
     print("Vertical OpenAI Compatible API 服务器已启动")
 
