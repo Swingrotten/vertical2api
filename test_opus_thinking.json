@@ -1,0 +1,10 @@
+{
+  "model": "claude-4-opus-20250514-thinking",
+  "messages": [
+    {
+      "role": "user",
+      "content": "用opus思考模式测试"
+    }
+  ],
+  "stream": true
+}
