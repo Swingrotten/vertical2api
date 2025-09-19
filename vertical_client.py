@@ -12,11 +12,35 @@ class VerticalApiClient:
         self.http_client = http_client
 
     async def get_chat_id(self, model_url: str, auth_token: str) -> Optional[str]:
-        """获取聊天ID"""
+        """获取聊天ID - 通过GET请求到模型.data端点"""
         try:
-            # 生成一个唯一的聊天ID
-            import uuid
-            return str(uuid.uuid4())
+            # 直接使用整个token作为认证值（根据教程）
+            # 使用Cookie头可能更准确
+            headers = {
+                'Cookie': f'sb-ppdjlmajmpcqpkdmnzfd-auth-token={auth_token}',
+                'Accept': 'text/plain',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+
+            # 根据教程，GET请求到model.data端点并添加forceNewChat=true
+            chat_id_url = f"{model_url}?forceNewChat=true"
+
+            print(f"获取chat_id从: {chat_id_url}")
+
+            response = await self.http_client.get(
+                chat_id_url,
+                headers=headers,
+                timeout=30.0
+            )
+
+            if response.status_code == 200:
+                chat_id = response.text.strip()
+                print(f"获取到chat_id: {chat_id}")
+                return chat_id
+            else:
+                print(f"获取chat_id失败: {response.status_code} - {response.text}")
+                return None
+
         except Exception as e:
             print(f"获取chat_id时出错: {e}")
             return None
@@ -32,17 +56,12 @@ class VerticalApiClient:
     ) -> AsyncGenerator[str, None]:
         """发送消息并返回流式响应"""
         try:
-            # 解析base64编码的认证令牌
-            if auth_token.startswith('base64-'):
-                token_data = json.loads(base64.b64decode(auth_token[7:]).decode('utf-8'))
-                access_token = token_data.get('access_token', '')
-            else:
-                access_token = auth_token
-
+            # 使用Cookie头格式（根据教程）
             headers = {
-                'Authorization': f'Bearer {access_token}',
+                'Cookie': f'sb-ppdjlmajmpcqpkdmnzfd-auth-token={auth_token}',
                 'Content-Type': 'application/json',
-                'Accept': 'text/event-stream'
+                'Accept': 'text/event-stream',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
             }
 
             # 根据抓取的实际API格式构建请求payload
