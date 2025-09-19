@@ -12,34 +12,12 @@ class VerticalApiClient:
         self.http_client = http_client
 
     async def get_chat_id(self, model_url: str, auth_token: str) -> Optional[str]:
-        """获取聊天ID - 通过GET请求到模型.data端点"""
+        """获取聊天ID - 暂时使用固定的chat ID进行测试"""
         try:
-            # 直接使用整个token作为认证值（根据教程）
-            # 使用Cookie头可能更准确
-            headers = {
-                'Cookie': f'sb-ppdjlmajmpcqpkdmnzfd-auth-token={auth_token}',
-                'Accept': 'text/plain',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
-
-            # 根据教程，GET请求到model.data端点并添加forceNewChat=true
-            chat_id_url = f"{model_url}?forceNewChat=true"
-
-            print(f"获取chat_id从: {chat_id_url}")
-
-            response = await self.http_client.get(
-                chat_id_url,
-                headers=headers,
-                timeout=30.0
-            )
-
-            if response.status_code == 200:
-                chat_id = response.text.strip()
-                print(f"获取到chat_id: {chat_id}")
-                return chat_id
-            else:
-                print(f"获取chat_id失败: {response.status_code} - {response.text}")
-                return None
+            # 使用用户提供的真实chat ID进行测试
+            fixed_chat_id = "cmfr5nvs312v8ycibc8444ep8"
+            print(f"使用固定chat_id进行测试: {fixed_chat_id}")
+            return fixed_chat_id
 
         except Exception as e:
             print(f"获取chat_id时出错: {e}")
