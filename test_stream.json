@@ -1,0 +1,10 @@
+{
+  "model": "claude-4-sonnet-20250514-thinking",
+  "messages": [
+    {
+      "role": "user",
+      "content": "测试流式响应"
+    }
+  ],
+  "stream": true
+}

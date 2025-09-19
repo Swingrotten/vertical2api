@@ -1,0 +1,10 @@
+{
+  "model": "claude-4-sonnet-20250514",
+  "messages": [
+    {
+      "role": "user",
+      "content": "你好"
+    }
+  ],
+  "stream": false
+}
