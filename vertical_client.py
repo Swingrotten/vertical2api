@@ -12,12 +12,58 @@ class VerticalApiClient:
         self.http_client = http_client
 
     async def get_chat_id(self, model_url: str, auth_token: str) -> Optional[str]:
-        """获取聊天ID - 暂时使用固定的chat ID进行测试"""
+        """获取聊天ID - 通过GET请求解析重定向响应"""
         try:
-            # 使用用户提供的真实chat ID进行测试
-            fixed_chat_id = "cmfr5nvs312v8ycibc8444ep8"
-            print(f"使用固定chat_id进行测试: {fixed_chat_id}")
-            return fixed_chat_id
+            # 直接使用原始token值（根据用户确认）
+            headers = {
+                'Cookie': f'sb-ppdjlmajmpcqpkdmnzfd-auth-token={auth_token}',
+                'Accept': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+
+            # 根据抓包，GET请求到model.data端点并添加forceNewChat=true
+            chat_id_url = f"{model_url}?forceNewChat=true"
+
+            print(f"获取chat_id从: {chat_id_url}")
+
+            response = await self.http_client.get(
+                chat_id_url,
+                headers=headers,
+                timeout=30.0
+            )
+
+            if response.status_code == 202:  # 状态码是202
+                response_text = response.text.strip()
+                print(f"获取到响应: {response_text[:200]}...")
+
+                try:
+                    # 解析JSON响应数组
+                    import json
+                    response_data = json.loads(response_text)
+
+                    # 查找重定向路径
+                    redirect_path = None
+                    for item in response_data:
+                        if isinstance(item, str) and item.startswith('/stream/models/'):
+                            redirect_path = item
+                            break
+
+                    if redirect_path:
+                        # 从路径中提取chat_id (最后一个斜杠后的内容)
+                        chat_id = redirect_path.split('/')[-1]
+                        print(f"从重定向路径提取chat_id: {chat_id}")
+                        return chat_id
+                    else:
+                        print("未找到重定向路径")
+                        return None
+
+                except json.JSONDecodeError as e:
+                    print(f"JSON解析失败: {e}")
+                    return None
+
+            else:
+                print(f"获取chat_id失败: {response.status_code} - {response.text}")
+                return None
 
         except Exception as e:
             print(f"获取chat_id时出错: {e}")
@@ -34,7 +80,7 @@ class VerticalApiClient:
     ) -> AsyncGenerator[str, None]:
         """发送消息并返回流式响应"""
         try:
-            # 使用Cookie头格式（根据教程）
+            # 直接使用原始token值（根据用户确认）
             headers = {
                 'Cookie': f'sb-ppdjlmajmpcqpkdmnzfd-auth-token={auth_token}',
                 'Content-Type': 'application/json',
